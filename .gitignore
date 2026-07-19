@@ -1,0 +1,17 @@
+# Dependencies and builds
+node_modules/
+dist/
+dist-ssr/
+
+# Environment and deployment metadata
+.env
+.env.*
+!.env.example
+.vercel/
+
+# Logs and editor files
+*.log
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
