@@ -9,6 +9,7 @@ import {
   Pencil,
   Plus,
   Send,
+  Share2,
   Sparkles,
   UserRoundPlus,
   Users,
@@ -50,7 +51,7 @@ function AuthLoading() {
   )
 }
 
-function LoginScreen() {
+function LoginScreen({ hasInvitation = false }) {
   const [isSigningIn, setIsSigningIn] = useState(false)
   const [authError, setAuthError] = useState('')
 
@@ -88,8 +89,9 @@ function LoginScreen() {
           <p className="eyebrow">Seu espaço particular</p>
           <h1 id="login-title">Entre para guardar o que importa.</h1>
           <p>
-            Suas pessoas e mensagens ficam disponíveis somente depois que você
-            confirma sua identidade com o Google.
+            {hasInvitation
+              ? 'Entre com a conta Google que você quer associar a este convite.'
+              : 'Suas pessoas e mensagens ficam disponíveis somente depois que você confirma sua identidade com o Google.'}
           </p>
         </div>
 
@@ -260,7 +262,7 @@ function HomeScreen({ people, onOpenPerson, onRandomMoment, onShowPeople, recent
   )
 }
 
-function PeopleScreen({ people, onCreatePerson, onOpenPerson, isSaving }) {
+function PeopleScreen({ people, onCreatePerson, onInvitePerson, onOpenPerson, isSaving }) {
   const [name, setName] = useState('')
   const [relationship, setRelationship] = useState('')
   const [color, setColor] = useState(PERSON_COLORS[0])
@@ -422,19 +424,29 @@ function PeopleScreen({ people, onCreatePerson, onOpenPerson, isSaving }) {
         ) : (
           <div className="people-list">
             {people.map((person) => (
-              <button
-                className="person-row"
-                type="button"
-                key={person.id}
-                onClick={() => onOpenPerson(person)}
-              >
-                <Avatar person={person} />
-                <span>
-                  <strong>{person.name}</strong>
-                  <small>{person.relationship || 'Uma pessoa especial'} · {person.messages.length} mensagens</small>
-                </span>
-                <ChevronLeft className="row-chevron" size={20} aria-hidden="true" />
-              </button>
+              <div className="person-row-card" key={person.id}>
+                <button
+                  className="person-row"
+                  type="button"
+                  onClick={() => onOpenPerson(person)}
+                >
+                  <Avatar person={person} />
+                  <span>
+                    <strong>{person.name}</strong>
+                    <small>{person.relationship || 'Uma pessoa especial'} · {person.messages.length} mensagens</small>
+                  </span>
+                  <ChevronLeft className="row-chevron" size={20} aria-hidden="true" />
+                </button>
+                <button
+                  className="person-invite-button"
+                  type="button"
+                  disabled={isSaving || person.isLinked}
+                  onClick={() => onInvitePerson(person)}
+                >
+                  <Share2 size={16} />
+                  {person.isLinked ? 'Conta conectada' : 'Convidar para o app'}
+                </button>
+              </div>
             ))}
           </div>
         )}
@@ -443,7 +455,7 @@ function PeopleScreen({ people, onCreatePerson, onOpenPerson, isSaving }) {
   )
 }
 
-function PersonScreen({ person, onBack, onAddMessage, onRandomMoment, onUpdatePerson, isSaving }) {
+function PersonScreen({ person, onBack, onAddMessage, onInvitePerson, onRandomMoment, onUpdatePerson, isSaving }) {
   const [message, setMessage] = useState('')
   const [formError, setFormError] = useState('')
   const [isEditing, setIsEditing] = useState(false)
@@ -546,6 +558,15 @@ function PersonScreen({ person, onBack, onAddMessage, onRandomMoment, onUpdatePe
           </button>
           <button className="edit-person-button" type="button" onClick={startEditing}>
             <Pencil size={18} /> Editar pessoa
+          </button>
+          <button
+            className="invite-person-button"
+            type="button"
+            disabled={isSaving}
+            onClick={() => onInvitePerson(person)}
+          >
+            <Share2 size={18} />
+            {person.isLinked ? 'Conta conectada' : 'Convidar para o app'}
           </button>
         </div>
       </section>
@@ -872,6 +893,39 @@ function AuthenticatedApp({ user }) {
     }
   }
 
+  async function invitePerson(person) {
+    setIsSaving(true)
+    setError('')
+
+    try {
+      const response = await authorizedFetch(`/api/people/${person.id}/invitations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const invitation = await response.json()
+      if (!response.ok) throw new Error(invitation.error || 'Falha ao gerar convite')
+
+      const shareData = {
+        title: `Convite para ${person.name}`,
+        text: `Oi, ${person.name.split(' ')[0]}! Quero te convidar para o Apenas para dizer.`,
+        url: invitation.inviteUrl,
+      }
+      if (navigator.share) {
+        await navigator.share(shareData)
+      } else {
+        await navigator.clipboard.writeText(invitation.inviteUrl)
+        showToast('Link do convite copiado.')
+      }
+    } catch (inviteError) {
+      if (inviteError?.name !== 'AbortError') {
+        setError(inviteError instanceof Error ? inviteError.message : 'Não foi possível gerar o convite agora.')
+      }
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   async function randomMoment(person) {
     if (person.messages.length === 0) {
       openPerson(person)
@@ -951,6 +1005,7 @@ function AuthenticatedApp({ user }) {
                 people={people}
                 isSaving={isSaving}
                 onCreatePerson={createPerson}
+                onInvitePerson={invitePerson}
                 onOpenPerson={openPerson}
               />
             )}
@@ -960,6 +1015,7 @@ function AuthenticatedApp({ user }) {
                 isSaving={isSaving}
                 onAddMessage={addMessage}
                 onBack={() => navigate('people')}
+                onInvitePerson={invitePerson}
                 onRandomMoment={randomMoment}
                 onUpdatePerson={updatePerson}
               />
@@ -980,6 +1036,13 @@ function AuthenticatedApp({ user }) {
 export default function App() {
   const [user, setUser] = useState(null)
   const [isAuthLoading, setIsAuthLoading] = useState(true)
+  const [invitationStatus, setInvitationStatus] = useState('idle')
+  const [invitationError, setInvitationError] = useState('')
+  const invitationToken = useMemo(
+    () => new URLSearchParams(window.location.search).get('invite'),
+    [],
+  )
+  const acceptedInvitation = useRef('')
 
   useEffect(() => {
     return onAuthStateChanged(auth, (currentUser) => {
@@ -988,8 +1051,47 @@ export default function App() {
     })
   }, [])
 
+  useEffect(() => {
+    if (!user || !invitationToken || acceptedInvitation.current === invitationToken) return
+
+    acceptedInvitation.current = invitationToken
+    setInvitationStatus('accepting')
+    authorizedFetch(`/api/invitations/${encodeURIComponent(invitationToken)}/accept`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+      .then(async (response) => {
+        const body = await response.json()
+        if (!response.ok) throw new Error(body.error || 'Não foi possível aceitar o convite.')
+        window.history.replaceState({}, '', window.location.pathname)
+        setInvitationStatus('accepted')
+      })
+      .catch((error) => {
+        setInvitationError(error instanceof Error ? error.message : 'Não foi possível aceitar o convite.')
+        setInvitationStatus('error')
+      })
+  }, [invitationToken, user])
+
   if (isAuthLoading) return <AuthLoading />
-  if (!user) return <LoginScreen />
+  if (!user) return <LoginScreen hasInvitation={Boolean(invitationToken)} />
+  if (invitationStatus === 'accepting') return <AuthLoading />
+  if (invitationStatus === 'error') {
+    return (
+      <main className="auth-shell">
+        <section className="auth-card">
+          <div className="auth-copy">
+            <p className="eyebrow">Convite</p>
+            <h1>Não foi possível associar sua conta.</h1>
+            <p className="auth-error" role="alert">{invitationError}</p>
+          </div>
+          <button type="button" onClick={() => setInvitationStatus('accepted')}>
+            Continuar para o app
+          </button>
+        </section>
+      </main>
+    )
+  }
 
   return <AuthenticatedApp user={user} />
 }

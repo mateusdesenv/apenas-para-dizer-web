@@ -4,6 +4,32 @@ button,
   touch-action: manipulation;
 }
 
+.person-row-card {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+}
+
+.person-row-card .person-row {
+  border: 0;
+  border-radius: 0;
+}
+
+.person-invite-button {
+  display: flex;
+  width: 100%;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--blush);
+  color: var(--plum);
+  font-size: 0.76rem;
+}
+
 button {
   min-height: 48px;
   padding: 0 20px;
@@ -843,6 +869,7 @@ textarea:focus {
 }
 
 .edit-person-button,
+.invite-person-button,
 .cancel-button {
   display: flex;
   align-items: center;
@@ -851,6 +878,16 @@ textarea:focus {
   min-height: 48px;
   border: 1px solid var(--border-strong);
   background: var(--surface);
+}
+
+.invite-person-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  background: var(--cream);
+  color: var(--plum);
 }
 
 .edit-person-form {
