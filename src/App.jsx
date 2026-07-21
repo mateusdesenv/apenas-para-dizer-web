@@ -739,6 +739,15 @@ function BottomNavigation({ screen, onNavigate }) {
       </button>
       <button
         type="button"
+        className={screen === 'friends' ? 'active' : ''}
+        aria-current={screen === 'friends' ? 'page' : undefined}
+        onClick={() => onNavigate('friends')}
+      >
+        <UserRoundPlus size={22} />
+        <span>Amigos</span>
+      </button>
+      <button
+        type="button"
         className={screen === 'people' || screen === 'person' ? 'active' : ''}
         aria-current={screen === 'people' || screen === 'person' ? 'page' : undefined}
         onClick={() => onNavigate('people')}
@@ -750,6 +759,170 @@ function BottomNavigation({ screen, onNavigate }) {
   )
 }
 
+function SocialAvatar({ profile }) {
+  if (profile?.photoURL) {
+    return <img className="social-avatar" src={profile.photoURL} alt="" referrerPolicy="no-referrer" />
+  }
+  return <span className="social-avatar social-avatar-fallback" aria-hidden="true">{initials(profile?.displayName || 'U')}</span>
+}
+
+function FriendsScreen({ profile, requests, isSaving, onSaveUsername, onSearch, onSendRequest, onRespond }) {
+  const [username, setUsername] = useState(profile?.username || '')
+  const [search, setSearch] = useState('')
+  const [results, setResults] = useState([])
+  const [formError, setFormError] = useState('')
+
+  useEffect(() => setUsername(profile?.username || ''), [profile?.username])
+
+  async function handleUsernameSubmit(event) {
+    event.preventDefault()
+    setFormError('')
+    await onSaveUsername(username)
+  }
+
+  async function handleSearch(event) {
+    event.preventDefault()
+    if (search.trim().replace(/^@/, '').length < 2) {
+      setFormError('Digite pelo menos 2 caracteres para buscar.')
+      return
+    }
+    setFormError('')
+    setResults(await onSearch(search))
+  }
+
+  const incoming = requests.filter((request) => request.direction === 'incoming' && request.status === 'pending')
+  const outgoing = requests.filter((request) => request.direction === 'outgoing' && request.status === 'pending')
+
+  return (
+    <>
+      <section className="screen-title social-screen-title">
+        <p className="eyebrow">Sua rede</p>
+        <h1>Amigos</h1>
+        <p>Encontre quem já usa o app e conecte os perfis de vocês.</p>
+      </section>
+
+      <div className="social-grid">
+        <form className="social-panel" onSubmit={handleUsernameSubmit}>
+          <div className="social-panel-heading">
+            <span><UserRoundPlus size={21} /></span>
+            <div>
+              <p className="eyebrow">Seu perfil</p>
+              <h2>Nome de usuário</h2>
+            </div>
+          </div>
+          <p className="social-description">É assim que seus amigos encontrarão você.</p>
+          <label htmlFor="social-username">Seu @username</label>
+          <div className="username-field">
+            <span aria-hidden="true">@</span>
+            <input
+              id="social-username"
+              autoCapitalize="none"
+              autoComplete="username"
+              maxLength="24"
+              pattern="[A-Za-z0-9._]{3,24}"
+              required
+              placeholder="seu.usuario"
+              value={username}
+              onChange={(event) => setUsername(event.target.value.replace(/^@/, ''))}
+            />
+          </div>
+          <small className="field-help">3 a 24 caracteres: letras, números, ponto ou sublinhado.</small>
+          <button className="primary-button" type="submit" disabled={isSaving}>
+            {profile?.username ? 'Salvar @username' : 'Criar @username'}
+          </button>
+        </form>
+
+        <form className="social-panel" onSubmit={handleSearch}>
+          <div className="social-panel-heading">
+            <span><Users size={21} /></span>
+            <div>
+              <p className="eyebrow">Nova conexão</p>
+              <h2>Adicionar um amigo</h2>
+            </div>
+          </div>
+          <p className="social-description">Busque pelo nome de usuário exato ou pelo começo dele.</p>
+          <label htmlFor="friend-search">Nome de usuário</label>
+          <div className="social-search-row">
+            <input
+              id="friend-search"
+              autoCapitalize="none"
+              autoComplete="off"
+              placeholder="@MatheusC2001"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+            <button type="submit" disabled={isSaving}>Buscar</button>
+          </div>
+          {formError && <p className="inline-error" role="alert">{formError}</p>}
+          <div className="social-results" aria-live="polite">
+            {results.map((result) => (
+              <article className="social-user-card" key={result.username}>
+                <SocialAvatar profile={result} />
+                <div>
+                  <strong>{result.displayName}</strong>
+                  <small>@{result.username}</small>
+                </div>
+                <button
+                  type="button"
+                  disabled={isSaving || !result.username}
+                  onClick={async () => {
+                    if (await onSendRequest(result.username)) {
+                      setResults((current) => current.filter((item) => item.username !== result.username))
+                    }
+                  }}
+                >
+                  Adicionar
+                </button>
+              </article>
+            ))}
+          </div>
+        </form>
+      </div>
+
+      {incoming.length > 0 && (
+        <section className="social-panel social-requests" aria-labelledby="incoming-title">
+          <p className="eyebrow">Novas conexões</p>
+          <h2 id="incoming-title">Pedidos recebidos</h2>
+          <div className="request-list">
+            {incoming.map((request) => (
+              <article className="request-card" key={request.id}>
+                <SocialAvatar profile={request.profile} />
+                <div>
+                  <strong>{request.profile?.displayName || 'Usuário'}</strong>
+                  <small>@{request.profile?.username || 'sem-username'}</small>
+                </div>
+                <div className="request-actions">
+                  <button className="secondary-button" type="button" disabled={isSaving} onClick={() => onRespond(request, 'reject')}>Recusar</button>
+                  <button type="button" disabled={isSaving} onClick={() => onRespond(request, 'accept')}>Aceitar</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {outgoing.length > 0 && (
+        <section className="social-panel social-requests" aria-labelledby="outgoing-title">
+          <p className="eyebrow">Aguardando resposta</p>
+          <h2 id="outgoing-title">Pedidos enviados</h2>
+          <div className="request-list">
+            {outgoing.map((request) => (
+              <article className="request-card request-card-pending" key={request.id}>
+                <SocialAvatar profile={request.profile} />
+                <div>
+                  <strong>{request.profile?.displayName || 'Usuário'}</strong>
+                  <small>@{request.profile?.username || 'sem-username'}</small>
+                </div>
+                <span className="status-badge">Pendente</span>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+    </>
+  )
+}
+
 function AuthenticatedApp({ user }) {
   const [screen, setScreen] = useState('home')
   const [people, setPeople] = useState([])
@@ -758,6 +931,8 @@ function AuthenticatedApp({ user }) {
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
+  const [socialProfile, setSocialProfile] = useState(null)
+  const [friendRequests, setFriendRequests] = useState([])
 
   const selectedPerson = people.find((person) => person.id === selectedPersonId)
   const recentMoments = useMemo(
@@ -791,23 +966,49 @@ function AuthenticatedApp({ user }) {
     }
   }, [])
 
+  const loadSocial = useCallback(async () => {
+    try {
+      const [profileResponse, requestsResponse] = await Promise.all([
+        authorizedFetch('/api/social/me'),
+        authorizedFetch('/api/social/friend-requests'),
+      ])
+      const profileBody = await profileResponse.json()
+      const requestsBody = await requestsResponse.json()
+      if (!profileResponse.ok) throw new Error(profileBody.error || 'Não foi possível carregar seu perfil.')
+      if (!requestsResponse.ok) throw new Error(requestsBody.error || 'Não foi possível carregar suas solicitações.')
+      setSocialProfile(profileBody)
+      setFriendRequests(requestsBody)
+    } catch (socialError) {
+      setError(socialError instanceof Error ? socialError.message : 'Não foi possível carregar sua rede.')
+    }
+  }, [])
+
   useEffect(() => {
     loadPeople()
-  }, [loadPeople])
+    loadSocial()
+  }, [loadPeople, loadSocial])
 
   useEffect(() => {
     function refreshWhenVisible() {
-      if (document.visibilityState === 'visible') loadPeople()
+      if (document.visibilityState === 'visible') {
+        loadPeople()
+        loadSocial()
+      }
     }
 
-    window.addEventListener('focus', loadPeople)
+    function refreshAll() {
+      loadPeople()
+      loadSocial()
+    }
+
+    window.addEventListener('focus', refreshAll)
     document.addEventListener('visibilitychange', refreshWhenVisible)
 
     return () => {
-      window.removeEventListener('focus', loadPeople)
+      window.removeEventListener('focus', refreshAll)
       document.removeEventListener('visibilitychange', refreshWhenVisible)
     }
-  }, [loadPeople])
+  }, [loadPeople, loadSocial])
 
   function navigate(nextScreen) {
     setScreen(nextScreen)
@@ -819,6 +1020,84 @@ function AuthenticatedApp({ user }) {
     setSelectedPersonId(person.id)
     setScreen('person')
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  async function saveUsername(username) {
+    setIsSaving(true)
+    setError('')
+    try {
+      const response = await authorizedFetch('/api/social/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username }),
+      })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || 'Não foi possível salvar seu nome de usuário.')
+      setSocialProfile(body)
+      showToast(`Seu nome agora é @${body.username}.`)
+      return true
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Não foi possível salvar seu nome de usuário.')
+      return false
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function searchUsers(username) {
+    setError('')
+    try {
+      const query = encodeURIComponent(username.trim().replace(/^@/, ''))
+      const response = await authorizedFetch(`/api/social/users/search?username=${query}`)
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || 'Não foi possível buscar usuários.')
+      return body
+    } catch (searchError) {
+      setError(searchError instanceof Error ? searchError.message : 'Não foi possível buscar usuários.')
+      return []
+    }
+  }
+
+  async function sendFriendRequest(username) {
+    setIsSaving(true)
+    setError('')
+    try {
+      const response = await authorizedFetch('/api/social/friend-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username }),
+      })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || 'Não foi possível enviar a solicitação.')
+      await loadSocial()
+      showToast(`Solicitação enviada para @${username}.`)
+      return true
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Não foi possível enviar a solicitação.')
+      return false
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function respondToFriendRequest(request, action) {
+    setIsSaving(true)
+    setError('')
+    try {
+      const response = await authorizedFetch(`/api/social/friend-requests/${request.id}/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || 'Não foi possível responder à solicitação.')
+      await Promise.all([loadSocial(), loadPeople()])
+      showToast(action === 'accept' ? 'Amizade adicionada ao seu círculo.' : 'Solicitação recusada.')
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Não foi possível responder à solicitação.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   async function createPerson(payload) {
@@ -1018,6 +1297,17 @@ function AuthenticatedApp({ user }) {
                 onInvitePerson={invitePerson}
                 onRandomMoment={randomMoment}
                 onUpdatePerson={updatePerson}
+              />
+            )}
+            {screen === 'friends' && (
+              <FriendsScreen
+                profile={socialProfile}
+                requests={friendRequests}
+                isSaving={isSaving}
+                onSaveUsername={saveUsername}
+                onSearch={searchUsers}
+                onSendRequest={sendFriendRequest}
+                onRespond={respondToFriendRequest}
               />
             )}
           </>
