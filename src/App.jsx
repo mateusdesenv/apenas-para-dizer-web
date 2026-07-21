@@ -1056,11 +1056,15 @@ export default function App() {
 
     acceptedInvitation.current = invitationToken
     setInvitationStatus('accepting')
-    authorizedFetch(`/api/invitations/${encodeURIComponent(invitationToken)}/accept`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    })
+    authorizedFetch('/api/social/me')
+      .then((profileResponse) => {
+        if (!profileResponse.ok) throw new Error('Não foi possível preparar seu perfil.')
+        return authorizedFetch(`/api/invitations/${encodeURIComponent(invitationToken)}/accept`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        })
+      })
       .then(async (response) => {
         const body = await response.json()
         if (!response.ok) throw new Error(body.error || 'Não foi possível aceitar o convite.')
