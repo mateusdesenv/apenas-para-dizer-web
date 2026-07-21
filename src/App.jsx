@@ -11,6 +11,8 @@ import {
   Send,
   Share2,
   Sparkles,
+  Trash2,
+  UserRoundMinus,
   UserRoundPlus,
   Users,
 } from 'lucide-react'
@@ -262,7 +264,7 @@ function HomeScreen({ people, onOpenPerson, onRandomMoment, onShowPeople, recent
   )
 }
 
-function PeopleScreen({ people, onCreatePerson, onInvitePerson, onOpenPerson, isSaving }) {
+function PeopleScreen({ people, onCreatePerson, onDeletePerson, onInvitePerson, onOpenPerson, onUndoFriendship, isSaving }) {
   const [name, setName] = useState('')
   const [relationship, setRelationship] = useState('')
   const [color, setColor] = useState(PERSON_COLORS[0])
@@ -446,6 +448,15 @@ function PeopleScreen({ people, onCreatePerson, onInvitePerson, onOpenPerson, is
                   <Share2 size={16} />
                   {person.isLinked ? 'Conta conectada' : 'Convidar para o app'}
                 </button>
+                <button
+                  className="person-danger-button"
+                  type="button"
+                  disabled={isSaving}
+                  onClick={() => person.isLinked ? onUndoFriendship(person) : onDeletePerson(person)}
+                >
+                  {person.isLinked ? <UserRoundMinus size={16} /> : <Trash2 size={16} />}
+                  {person.isLinked ? 'Desfazer amizade' : 'Excluir pessoa'}
+                </button>
               </div>
             ))}
           </div>
@@ -455,7 +466,7 @@ function PeopleScreen({ people, onCreatePerson, onInvitePerson, onOpenPerson, is
   )
 }
 
-function PersonScreen({ person, onBack, onAddMessage, onInvitePerson, onRandomMoment, onUpdatePerson, isSaving }) {
+function PersonScreen({ person, onBack, onAddMessage, onDeletePerson, onInvitePerson, onRandomMoment, onUndoFriendship, onUpdatePerson, isSaving }) {
   const [message, setMessage] = useState('')
   const [formError, setFormError] = useState('')
   const [isEditing, setIsEditing] = useState(false)
@@ -567,6 +578,15 @@ function PersonScreen({ person, onBack, onAddMessage, onInvitePerson, onRandomMo
           >
             <Share2 size={18} />
             {person.isLinked ? 'Conta conectada' : 'Convidar para o app'}
+          </button>
+          <button
+            className="delete-person-button"
+            type="button"
+            disabled={isSaving}
+            onClick={() => person.isLinked ? onUndoFriendship(person) : onDeletePerson(person)}
+          >
+            {person.isLinked ? <UserRoundMinus size={18} /> : <Trash2 size={18} />}
+            {person.isLinked ? 'Desfazer amizade' : 'Excluir pessoa'}
           </button>
         </div>
       </section>
@@ -725,6 +745,76 @@ function PersonScreen({ person, onBack, onAddMessage, onInvitePerson, onRandomMo
   )
 }
 
+function ReceivedMessagesScreen({ messages, isLoading, error, onRetry }) {
+  return (
+    <>
+      <section className="screen-title received-screen-title">
+        <p className="eyebrow">Sua caixa de entrada</p>
+        <h1>Mensagens que chegaram até você</h1>
+        <p>Um lugar para reler tudo o que as pessoas quiseram guardar para você.</p>
+      </section>
+
+      <section className="received-messages" aria-labelledby="received-messages-title" aria-busy={isLoading}>
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Recebidas</p>
+            <h2 id="received-messages-title">
+              {messages.length} {messages.length === 1 ? 'mensagem' : 'mensagens'}
+            </h2>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="content-loading" aria-live="polite">
+            <span className="spinner" aria-hidden="true" />
+            <p>Buscando suas mensagens…</p>
+          </div>
+        ) : error ? (
+          <div className="received-error" role="alert">
+            <MessageCircleHeart size={24} aria-hidden="true" />
+            <div>
+              <strong>Não foi possível abrir sua caixa de entrada.</strong>
+              <p>{error}</p>
+            </div>
+            <button type="button" onClick={onRetry}>Tentar novamente</button>
+          </div>
+        ) : messages.length === 0 ? (
+          <EmptyState icon={MessageCircleHeart} title="Ainda não chegou nenhuma mensagem">
+            Quando alguém guardar algo para você, a mensagem aparecerá aqui.
+          </EmptyState>
+        ) : (
+          <div className="received-message-list">
+            {messages.map((message) => {
+              const sender = message.sender || {}
+              const senderName = sender.displayName || sender.name || message.senderName || 'Alguém especial'
+              const senderAvatar = sender.photoURL || sender.avatarDataUrl || message.senderPhotoURL
+
+              return (
+                <article className="received-message-card" key={message.id}>
+                  {senderAvatar ? (
+                    <img className="received-sender-avatar" src={senderAvatar} alt="" referrerPolicy="no-referrer" />
+                  ) : (
+                    <span className="received-sender-avatar received-sender-fallback" aria-hidden="true">
+                      {initials(senderName)}
+                    </span>
+                  )}
+                  <div className="received-message-body">
+                    <div className="received-message-meta">
+                      <strong>{senderName}</strong>
+                      {message.createdAt && <time dateTime={message.createdAt}>{formatMomentDate(message.createdAt)}</time>}
+                    </div>
+                    <blockquote>“{message.text}”</blockquote>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        )}
+      </section>
+    </>
+  )
+}
+
 function BottomNavigation({ screen, onNavigate }) {
   return (
     <nav className="bottom-nav" aria-label="Navegação principal">
@@ -736,6 +826,15 @@ function BottomNavigation({ screen, onNavigate }) {
       >
         <Home size={22} />
         <span>Início</span>
+      </button>
+      <button
+        type="button"
+        className={screen === 'received' ? 'active' : ''}
+        aria-current={screen === 'received' ? 'page' : undefined}
+        onClick={() => onNavigate('received')}
+      >
+        <MessageCircleHeart size={22} />
+        <span>Recebidas</span>
       </button>
       <button
         type="button"
@@ -933,6 +1032,9 @@ function AuthenticatedApp({ user }) {
   const [toast, setToast] = useState('')
   const [socialProfile, setSocialProfile] = useState(null)
   const [friendRequests, setFriendRequests] = useState([])
+  const [receivedMessages, setReceivedMessages] = useState([])
+  const [receivedMessagesError, setReceivedMessagesError] = useState('')
+  const [isLoadingReceivedMessages, setIsLoadingReceivedMessages] = useState(true)
 
   const selectedPerson = people.find((person) => person.id === selectedPersonId)
   const recentMoments = useMemo(
@@ -983,22 +1085,43 @@ function AuthenticatedApp({ user }) {
     }
   }, [])
 
+  const loadReceivedMessages = useCallback(async () => {
+    setReceivedMessagesError('')
+    setIsLoadingReceivedMessages(true)
+
+    try {
+      const response = await authorizedFetch('/api/messages/received')
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || 'Tente novamente em alguns instantes.')
+      setReceivedMessages(Array.isArray(body) ? body : body.messages || [])
+    } catch (receivedError) {
+      setReceivedMessagesError(
+        receivedError instanceof Error ? receivedError.message : 'Tente novamente em alguns instantes.',
+      )
+    } finally {
+      setIsLoadingReceivedMessages(false)
+    }
+  }, [])
+
   useEffect(() => {
     loadPeople()
     loadSocial()
-  }, [loadPeople, loadSocial])
+    loadReceivedMessages()
+  }, [loadPeople, loadReceivedMessages, loadSocial])
 
   useEffect(() => {
     function refreshWhenVisible() {
       if (document.visibilityState === 'visible') {
         loadPeople()
         loadSocial()
+        loadReceivedMessages()
       }
     }
 
     function refreshAll() {
       loadPeople()
       loadSocial()
+      loadReceivedMessages()
     }
 
     window.addEventListener('focus', refreshAll)
@@ -1008,7 +1131,7 @@ function AuthenticatedApp({ user }) {
       window.removeEventListener('focus', refreshAll)
       document.removeEventListener('visibilitychange', refreshWhenVisible)
     }
-  }, [loadPeople, loadSocial])
+  }, [loadPeople, loadReceivedMessages, loadSocial])
 
   function navigate(nextScreen) {
     setScreen(nextScreen)
@@ -1172,6 +1295,47 @@ function AuthenticatedApp({ user }) {
     }
   }
 
+  async function deletePerson(person) {
+    if (!window.confirm(`Excluir ${person.name} e todas as mensagens e momentos guardados para essa pessoa?`)) return false
+
+    setIsSaving(true)
+    setError('')
+    try {
+      const response = await authorizedFetch(`/api/people/${person.id}`, { method: 'DELETE' })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || 'Não foi possível excluir essa pessoa.')
+      setPeople((current) => current.filter((item) => item.id !== person.id))
+      if (selectedPersonId === person.id) navigate('people')
+      showToast(`${person.name} foi removido do seu círculo.`)
+      return true
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Não foi possível excluir essa pessoa.')
+      return false
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function undoFriendship(person) {
+    if (!window.confirm(`Desfazer a amizade com ${person.name}? As mensagens guardadas serão preservadas.`)) return false
+
+    setIsSaving(true)
+    setError('')
+    try {
+      const response = await authorizedFetch(`/api/people/${person.id}/friendship`, { method: 'DELETE' })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || 'Não foi possível desfazer a amizade.')
+      setPeople((current) => current.map((item) => item.id === body.person.id ? body.person : item))
+      showToast(`A amizade com ${person.name} foi desfeita.`)
+      return true
+    } catch (friendshipError) {
+      setError(friendshipError instanceof Error ? friendshipError.message : 'Não foi possível desfazer a amizade.')
+      return false
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   async function invitePerson(person) {
     setIsSaving(true)
     setError('')
@@ -1284,8 +1448,10 @@ function AuthenticatedApp({ user }) {
                 people={people}
                 isSaving={isSaving}
                 onCreatePerson={createPerson}
+                onDeletePerson={deletePerson}
                 onInvitePerson={invitePerson}
                 onOpenPerson={openPerson}
+                onUndoFriendship={undoFriendship}
               />
             )}
             {screen === 'person' && selectedPerson && (
@@ -1294,8 +1460,10 @@ function AuthenticatedApp({ user }) {
                 isSaving={isSaving}
                 onAddMessage={addMessage}
                 onBack={() => navigate('people')}
+                onDeletePerson={deletePerson}
                 onInvitePerson={invitePerson}
                 onRandomMoment={randomMoment}
+                onUndoFriendship={undoFriendship}
                 onUpdatePerson={updatePerson}
               />
             )}
@@ -1308,6 +1476,14 @@ function AuthenticatedApp({ user }) {
                 onSearch={searchUsers}
                 onSendRequest={sendFriendRequest}
                 onRespond={respondToFriendRequest}
+              />
+            )}
+            {screen === 'received' && (
+              <ReceivedMessagesScreen
+                messages={receivedMessages}
+                isLoading={isLoadingReceivedMessages}
+                error={receivedMessagesError}
+                onRetry={loadReceivedMessages}
               />
             )}
           </>

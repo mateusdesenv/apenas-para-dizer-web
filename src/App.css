@@ -30,6 +30,20 @@ button,
   font-size: 0.76rem;
 }
 
+.person-danger-button {
+  display: flex;
+  width: 100%;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface);
+  color: #9d3f46;
+  font-size: 0.76rem;
+}
+
 button {
   min-height: 48px;
   padding: 0 20px;
@@ -870,6 +884,7 @@ textarea:focus {
 
 .edit-person-button,
 .invite-person-button,
+.delete-person-button,
 .cancel-button {
   display: flex;
   align-items: center;
@@ -878,6 +893,10 @@ textarea:focus {
   min-height: 48px;
   border: 1px solid var(--border-strong);
   background: var(--surface);
+}
+
+.delete-person-button {
+  color: #9d3f46;
 }
 
 .invite-person-button {
@@ -1169,7 +1188,7 @@ textarea:focus {
   bottom: calc(10px + env(safe-area-inset-bottom));
   left: 12px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
   max-width: 430px;
   margin: 0 auto;
@@ -1179,6 +1198,122 @@ textarea:focus {
   background: rgba(255, 250, 245, 0.94);
   box-shadow: 0 14px 40px rgba(58, 29, 61, 0.16);
   backdrop-filter: blur(18px);
+}
+
+.received-screen-title h1 {
+  max-width: 13ch;
+}
+
+.received-messages {
+  margin-top: 32px;
+}
+
+.received-message-list {
+  display: grid;
+  gap: 13px;
+}
+
+.received-message-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 13px;
+  padding: clamp(18px, 4vw, 24px);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.received-sender-avatar {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.received-sender-fallback {
+  background: var(--blush);
+  color: var(--plum);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.received-message-body {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+}
+
+.received-message-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.received-message-meta strong {
+  overflow: hidden;
+  color: var(--plum);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.received-message-meta time {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.received-message-card blockquote {
+  color: var(--text);
+  font-family: "Fraunces", Georgia, serif;
+  font-size: clamp(1.08rem, 3.5vw, 1.3rem);
+  line-height: 1.45;
+}
+
+.received-error {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 13px;
+  padding: 18px;
+  border: 1px solid #f1a3aa;
+  border-radius: 20px;
+  background: #fff0f1;
+  color: #8d2630;
+}
+
+.received-error div {
+  display: grid;
+  gap: 3px;
+}
+
+.received-error p {
+  font-size: 0.78rem;
+}
+
+.received-error button {
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: 0.74rem;
+}
+
+@media (max-width: 560px) {
+  .received-error {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .received-error button {
+    grid-column: 1 / -1;
+  }
+
+  .received-message-meta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
 }
 
 .bottom-nav button {
