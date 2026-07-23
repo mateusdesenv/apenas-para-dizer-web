@@ -466,8 +466,24 @@ function PeopleScreen({ people, onCreatePerson, onDeletePerson, onInvitePerson, 
   )
 }
 
-function PersonScreen({ person, onBack, onAddMessage, onDeletePerson, onInvitePerson, onRandomMoment, onUndoFriendship, onUpdatePerson, isSaving }) {
-  const [message, setMessage] = useState('')
+function PersonScreen({
+  person,
+  momentHistory,
+  isHistoryLoading,
+  historyError,
+  onBack,
+  onAddMessage,
+  onDeletePerson,
+  onInvitePerson,
+  onRandomMoment,
+  onRetryHistory,
+  onUndoFriendship,
+  onUpdatePerson,
+  isSaving,
+}) {
+  const [messageTitle, setMessageTitle] = useState('')
+  const [messageDescription, setMessageDescription] = useState('')
+  const [messageType, setMessageType] = useState('moment')
   const [formError, setFormError] = useState('')
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(person.name)
@@ -533,16 +549,27 @@ function PersonScreen({ person, onBack, onAddMessage, onDeletePerson, onInvitePe
   async function handleSubmit(event) {
     event.preventDefault()
 
-    if (!message.trim()) {
-      setFormError('Escreva uma mensagem antes de guardar.')
+    if (!messageTitle.trim()) {
+      setFormError('Informe o título da mensagem.')
+      return
+    }
+
+    if (!messageDescription.trim()) {
+      setFormError('Escreva a descrição da mensagem.')
       return
     }
 
     setFormError('')
-    const saved = await onAddMessage(person, message)
+    const saved = await onAddMessage(person, {
+      type: messageType,
+      title: messageTitle,
+      description: messageDescription,
+    })
 
     if (saved) {
-      setMessage('')
+      setMessageTitle('')
+      setMessageDescription('')
+      setMessageType('moment')
     }
   }
 
@@ -589,6 +616,57 @@ function PersonScreen({ person, onBack, onAddMessage, onDeletePerson, onInvitePe
             {person.isLinked ? 'Desfazer amizade' : 'Excluir pessoa'}
           </button>
         </div>
+      </section>
+
+      <section className="moment-history" aria-labelledby="moment-history-title" aria-busy={isHistoryLoading}>
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Nossa história</p>
+            <h2 id="moment-history-title">Momentos entre vocês</h2>
+          </div>
+          {!isHistoryLoading && !historyError && (
+            <span className="history-count" aria-label={`${momentHistory.length} momentos`}>
+              {momentHistory.length}
+            </span>
+          )}
+        </div>
+
+        {isHistoryLoading ? (
+          <div className="history-status" aria-live="polite">
+            <span className="spinner" aria-hidden="true" />
+            <p>Carregando os momentos de vocês…</p>
+          </div>
+        ) : historyError ? (
+          <div className="history-error" role="alert">
+            <p>{historyError}</p>
+            <button className="secondary-button" type="button" onClick={onRetryHistory}>
+              Tentar novamente
+            </button>
+          </div>
+        ) : momentHistory.length === 0 ? (
+          <EmptyState icon={Heart} title="Ainda não há momentos entre vocês">
+            Quando um de vocês enviar um momento, ele aparecerá aqui.
+          </EmptyState>
+        ) : (
+          <div className="moment-history-list">
+            {momentHistory.map((moment) => (
+              <article
+                className={`history-moment history-moment-${moment.direction}`}
+                key={`${moment.direction}-${moment.id}`}
+              >
+                <div className="history-moment-meta">
+                  <strong>
+                    {moment.direction === 'sent'
+                      ? `Você enviou para ${person.name.split(' ')[0]}`
+                      : `${person.name.split(' ')[0]} enviou para você`}
+                  </strong>
+                  <time dateTime={moment.createdAt}>{formatMomentDate(moment.createdAt)}</time>
+                </div>
+                <p>“{moment.text}”</p>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       {isEditing && (
@@ -698,18 +776,65 @@ function PersonScreen({ person, onBack, onAddMessage, onDeletePerson, onInvitePe
             <h2>Guarde algo para dizer</h2>
           </div>
         </div>
-        <label htmlFor="person-message">Mensagem para {person.name.split(' ')[0]}</label>
+        <fieldset className="message-type-fieldset">
+          <legend>Tipo de mensagem</legend>
+          <div className="message-type-options">
+            <label className={messageType === 'moment' ? 'message-type-option is-selected' : 'message-type-option'}>
+              <input
+                type="radio"
+                name="message-type"
+                value="moment"
+                checked={messageType === 'moment'}
+                onChange={(event) => setMessageType(event.target.value)}
+              />
+              <span>
+                <strong>Mensagem de momento</strong>
+                <small>Pode aparecer quando você escolher uma mensagem para este momento.</small>
+              </span>
+            </label>
+            <label className={messageType === 'special' ? 'message-type-option is-selected' : 'message-type-option'}>
+              <input
+                type="radio"
+                name="message-type"
+                value="special"
+                checked={messageType === 'special'}
+                onChange={(event) => setMessageType(event.target.value)}
+              />
+              <span>
+                <strong>Mensagem especial</strong>
+                <small>Só {person.name.split(' ')[0]} poderá ver, depois que entrar na conexão com você.</small>
+              </span>
+            </label>
+          </div>
+        </fieldset>
+        <label htmlFor="person-message-title">Título</label>
+        <input
+          id="person-message-title"
+          maxLength="40"
+          placeholder="Ex.: Quando você precisar de coragem"
+          value={messageTitle}
+          onChange={(event) => setMessageTitle(event.target.value)}
+        />
+        <div className="field-meta field-meta-counter">
+          <span>Uma frase curta para identificar a mensagem.</span>
+          <span>{messageTitle.length}/40</span>
+        </div>
+        <label htmlFor="person-message">Descrição para {person.name.split(' ')[0]}</label>
         <textarea
           id="person-message"
-          maxLength="280"
+          maxLength="250"
           rows="4"
           placeholder="Escreva algo que você gostaria de lembrar de dizer…"
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
+          value={messageDescription}
+          onChange={(event) => setMessageDescription(event.target.value)}
         />
         <div className="field-meta">
-          <span>Ela poderá ser escolhida aleatoriamente depois.</span>
-          <span>{message.length}/280</span>
+          <span>
+            {messageType === 'moment'
+              ? 'Ela poderá ser escolhida aleatoriamente depois.'
+              : 'Ela ficará guardada até essa pessoa entrar na sua conexão.'}
+          </span>
+          <span>{messageDescription.length}/250</span>
         </div>
         {formError && <p className="inline-error" role="alert">{formError}</p>}
         <button className="primary-button" type="submit" disabled={isSaving}>
@@ -735,7 +860,13 @@ function PersonScreen({ person, onBack, onAddMessage, onDeletePerson, onInvitePe
             {person.messages.map((item, index) => (
               <article className="saved-message" key={item.id}>
                 <span>{String(index + 1).padStart(2, '0')}</span>
-                <p>“{item.text}”</p>
+                <div>
+                  <small className={`message-type-badge message-type-badge-${item.type || 'moment'}`}>
+                    {(item.type || 'moment') === 'special' ? 'Especial' : 'Momento'}
+                  </small>
+                  <h3>{item.title || 'Mensagem'}</h3>
+                  <p>“{item.description || item.text}”</p>
+                </div>
               </article>
             ))}
           </div>
@@ -803,7 +934,8 @@ function ReceivedMessagesScreen({ messages, isLoading, error, onRetry }) {
                       <strong>{senderName}</strong>
                       {message.createdAt && <time dateTime={message.createdAt}>{formatMomentDate(message.createdAt)}</time>}
                     </div>
-                    <blockquote>“{message.text}”</blockquote>
+                    {message.title && <h3>{message.title}</h3>}
+                    <blockquote>“{message.description || message.text}”</blockquote>
                   </div>
                 </article>
               )
@@ -1035,6 +1167,9 @@ function AuthenticatedApp({ user }) {
   const [receivedMessages, setReceivedMessages] = useState([])
   const [receivedMessagesError, setReceivedMessagesError] = useState('')
   const [isLoadingReceivedMessages, setIsLoadingReceivedMessages] = useState(true)
+  const [momentHistories, setMomentHistories] = useState({})
+  const [historyLoadingId, setHistoryLoadingId] = useState('')
+  const [historyErrors, setHistoryErrors] = useState({})
 
   const selectedPerson = people.find((person) => person.id === selectedPersonId)
   const recentMoments = useMemo(
@@ -1139,9 +1274,32 @@ function AuthenticatedApp({ user }) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  const loadMomentHistory = useCallback(async (personId) => {
+    setHistoryLoadingId(personId)
+    setHistoryErrors((current) => ({ ...current, [personId]: '' }))
+
+    try {
+      const response = await authorizedFetch(`/api/people/${personId}/moments`)
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || 'Falha ao carregar os momentos.')
+      setMomentHistories((current) => ({
+        ...current,
+        [personId]: Array.isArray(body) ? body : [],
+      }))
+    } catch {
+      setHistoryErrors((current) => ({
+        ...current,
+        [personId]: 'Não foi possível carregar os momentos de vocês agora.',
+      }))
+    } finally {
+      setHistoryLoadingId((current) => current === personId ? '' : current)
+    }
+  }, [])
+
   function openPerson(person) {
     setSelectedPersonId(person.id)
     setScreen('person')
+    loadMomentHistory(person.id)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -1247,7 +1405,7 @@ function AuthenticatedApp({ user }) {
     }
   }
 
-  async function addMessage(person, text) {
+  async function addMessage(person, message) {
     setIsSaving(true)
     setError('')
 
@@ -1255,7 +1413,7 @@ function AuthenticatedApp({ user }) {
       const response = await authorizedFetch(`/api/people/${person.id}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify(message),
       })
 
       if (!response.ok) throw new Error('Falha ao salvar')
@@ -1370,9 +1528,12 @@ function AuthenticatedApp({ user }) {
   }
 
   async function randomMoment(person) {
-    if (person.messages.length === 0) {
+    const momentMessages = person.messages.filter((message) => (
+      !message.type || message.type === 'moment'
+    ))
+    if (momentMessages.length === 0) {
       openPerson(person)
-      showToast(`Cadastre a primeira mensagem para ${person.name}.`)
+      showToast(`Cadastre a primeira mensagem de momento para ${person.name}.`)
       return
     }
 
@@ -1389,6 +1550,7 @@ function AuthenticatedApp({ user }) {
       if (!response.ok) throw new Error('Falha ao escolher')
       const result = await response.json()
       setPeople((current) => current.map((item) => item.id === result.person.id ? result.person : item))
+      await loadMomentHistory(person.id)
       showToast(`Para ${person.name}: “${result.moment.text}”`)
       if (navigator.vibrate) navigator.vibrate(12)
     } catch {
@@ -1457,12 +1619,16 @@ function AuthenticatedApp({ user }) {
             {screen === 'person' && selectedPerson && (
               <PersonScreen
                 person={selectedPerson}
+                momentHistory={momentHistories[selectedPerson.id] || []}
+                isHistoryLoading={historyLoadingId === selectedPerson.id}
+                historyError={historyErrors[selectedPerson.id] || ''}
                 isSaving={isSaving}
                 onAddMessage={addMessage}
                 onBack={() => navigate('people')}
                 onDeletePerson={deletePerson}
                 onInvitePerson={invitePerson}
                 onRandomMoment={randomMoment}
+                onRetryHistory={() => loadMomentHistory(selectedPerson.id)}
                 onUndoFriendship={undoFriendship}
                 onUpdatePerson={updatePerson}
               />
